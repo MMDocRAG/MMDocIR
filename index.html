@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="description" content="MMDocRAG">
+  <meta name="keywords" content="multimodal chatbot">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MyNewdataset</title>
+
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.1/css/bulma.min.css">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css">
+  <link rel="stylesheet" href="./static/css/index.css">
+  <link rel="icon" href="static/images/logo.png">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/js/all.min.js"></script>
+  <script type="module" src="https://gradio.s3-us-west-2.amazonaws.com/3.27.0/gradio.js"></script>
+</head>
+
+
+<style>
+    .section {
+    margin-bottom: -30px; /* Adjust this value as needed to reduce the space */
+  }
+  .expandable-card .card-text-container {
+    max-height: 200px;
+    overflow-y: hidden;
+    position: relative;
+  }
+
+  .expandable-card.expanded .card-text-container {
+    max-height: none;
+  }
+
+  .expand-btn {
+    position: relative;
+    display: none;
+    background-color: rgba(255, 255, 255, 0.8);
+    /* margin-top: -20px; */
+    /* justify-content: center; */
+    color: #510c75;
+    border-color: transparent;
+  }
+
+  .expand-btn:hover {
+    background-color: rgba(200, 200, 200, 0.8);
+    text-decoration: none;
+    border-color: transparent;
+    color: #510c75;
+  }
+
+  .expand-btn:focus {
+    outline: none;
+    text-decoration: none;
+  }
+
+  .expandable-card:not(.expanded) .card-text-container:after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 90px;
+    background: linear-gradient(rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 1));
+  }
+
+  .expandable-card:not(.expanded) .expand-btn {
+    margin-top: -40px;
+  }
+
+  .card-body {
+    padding-bottom: 5px;
+  }
+
+  .vertical-flex-layout {
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .figure-img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  .adjustable-font-size {
+    font-size: calc(0.5rem + 2vw);
+  }
+
+  .chat-history {
+    flex-grow: 1;
+    overflow-y: auto;
+    /* overflow-x: hidden; */
+    padding: 5px;
+    border-bottom: 1px solid #ccc;
+    margin-bottom: 10px;
+  }
+
+  #gradio pre {
+    background-color: transparent;
+  }
+  
+	/* 使用渐变颜色实现彩虹字体 */
+	.rainbow-text {
+	  background: linear-gradient(to right, #3498db, #2ecc71);
+	  -webkit-background-clip: text;
+	  color: transparent;
+	  display: inline-block;
+	  font-weight: bold;
+	}
+  
+</style>
+
+<body>
+
+<section class="hero">
+  <div class="hero-body">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column has-text-centered">
+          <h1 class="title is-1 publication-title"> <span class="rainbow-text">MMDocIR</span>: Benchmarking Multi-Modal Retrieval for Long Documents
+          </h1>
+          <div class="is-size-5 publication-authors">
+            <span class="author-block"> <a href="">Kuicai Dong*</a><sup>1</sup>,</span>
+            <span class="author-block"> <a href="">Yujing Chang*</a><sup></sup><sup>,</span>
+            <span class="author-block"> <a href="">Xin Deik Goh*</a><sup></sup>,</span>
+            <span class="author-block"> <a href="">Dexun Li</a><sup>1</sup>,</span>
+            <span class="author-block"> <a href="">Ruiming Tang</a><sup>1</sup>,</span>
+            <span class="author-block"> <a href="">Yong Liu</a><sup>1</sup>,</span>
+        </div>
+
+          <div class="is-size-5 publication-authors">
+              <span class="author-block"><sup>1</sup>Huawei Noah's Ark Lab</span>
+   
+          </div>
+		  <div class="is-size-6 publication-authors">
+             
+            </div>
+          <div class="column has-text-centered">
+            <div class="publication-links">
+              <!-- PDF Link. -->
+              <span class="link-block"> <a href="https://arxiv.org/abs/2501.08828"
+                   class="external-link button is-normal is-rounded is-dark"> <span class="icon"> <i class="ai ai-arxiv"></i> </span> <span>arXiv</span> </a> </span>
+              
+              <!-- HuggingFace Link. -->
+              <span class="link-block"> <a href="https://huggingface.co/MMDocIR"
+                   class="external-link button is-normal is-rounded is-dark"><span class="icon">🤗</span><span>Dataset</span> </a></span>
+           
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <centering>
+      <div style="text-align: center;">
+        <img id="pipeline" width="105%" src="static/images/top_figure1.png">
+      </div>
+    </p>
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-six-fifths">
+	<div style="text-align: center;">
+	  </div><br>
+        <h2 class="title is-3">Abstract</h2>
+        <div class="content has-text-justified">
+		  <style>
+			/* 使用渐变颜色实现彩虹字体 */
+			.rainbow-text {
+			  background: linear-gradient(to right, #3498db, #2ecc71);
+			  -webkit-background-clip: text;
+			  color: transparent;
+			  display: inline-block;
+			  font-weight: bold;
+			}
+		  </style>
+          <p>
+            Multi-modal document retrieval focuses on identifying and retrieving diverse content types such as figures, tables, charts, and layout structures from long documents. Despite its importance, existing benchmarks fall short in offering comprehensive and fine-grained evaluation. To address this, we introduce MMDocIR, a large-scale benchmark that supports both page-level and layout-level retrieval. The page-level task aims to identify the most relevant pages for a given query, while the layout-level task targets finer units like paragraphs, tables, equations, or figures. MMDocIR consists of 1,685 expert-annotated and over 173,000 bootstrapped question-answer pairs grounded in multimodal content, making it a valuable resource for both training and evaluation. Each QA pair is associated with document layouts, bounding boxes, and modality tags. The benchmark spans a diverse set of document types and supports retrieval across text, image, and mixed modalities. MMDocIR provides a foundation for advancing research in fine-grained, layout-aware, and multimodal document retrieval.        </p>
+      </div>
+    </div>
+  </div>
+
+
+<section class="section"  style="background-color:#efeff081" id="Highlight">
+      <div class="container is-max-desktop">
+        <div class="columns is-centered has-text-centered">
+          <div class="column is-six-fifths">
+            <h2 class="title is-3">🔥Highlight</h2>
+            <div class="content has-text-justified">
+              <p style="font-size: 15px;">
+                <ul>
+                <li><b>Dual Granularity Retrieval: </b>MMDocIR supports both page-level and layout-level retrieval, enabling coarse-to-fine evaluation. Unlike prior datasets that only locate relevant pages, MMDocIR also identifies precise visual regions (figures, tables, equations) critical to answering queries.</li>
+                <li><b>Expert-Annotated & Scalable Data: </b> The benchmark includes a high-quality evaluation set with 1,658 expertly annotated QA pairs across 313 long documents, and a large-scale training set with 73,843 QA pairs converted from multiple DocQA datasets, making it suitable for both fine-grained evaluation and model pretraining.</li> 
+                <li><b>Vision-Driven Advantage: </b> Experiments reveal that visual retrievers leveraging VLMs significantly outperform text-based retrievers, highlighting the necessity of incorporating multimodal signals (not just OCR) for effective document understanding.</li>
+                </ul>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+</section><br>
+
+
+<section class="section" id="Benchmark Overview">
+  <div class="container is-max-desktop">
+     <div class="columns is-centered has-text-centered">
+       <div class="column is-six-fifths">
+         <h2 class="title is-3"> <span class="rainbow-text">MMDocIR</span> Overview</h2>
+       </div>
+     </div>
+       <div class="container is-max-desktop">
+         <div class="columns is-centered">
+           <div class="column is-full-width">
+             <div class="content has-text-justified">
+               <p>
+                  MMDocIR is a large-scale benchmark designed to advance research in multi-modal document retrieval. It comprises both an evaluation set and a training set, featuring extensive coverage of document types, content modalities, and task complexity.
+                  The evaluation set contains 313 long documents with an average length of 65.1 pages, spanning ten distinct domains such as research reports, tutorials, legal documents, and financial statements. These documents offer a rich diversity of modalities, with 60.4% text, 18.8% images, 16.7% tables, and 4.1% layout or meta content. A total of 1,658 expert-annotated questions are paired with 2,107 page-level and 2,638 layout-level labels. The questions require various modalities for reasoning: 44.7% involve text, 37.4% tables, 21.7% images, and 11.5% layout/meta elements. Notably, the dataset introduces significant challenges with 313 multi-page questions, 254 cross-modal cases, and 637 questions requiring reasoning over multiple layout elements.
+                </p>
+                <div style="text-align: center;">
+                  <img id="teaser1" style="max-width: 100%; height: auto;" src="static/images/dataset_overview1.png">
+                </div>
+                <p>
+                  The training set consists of 6,878 documents and 73,843 QA pairs, collected from seven diverse DocVQA-related datasets, including MP-DocVQA, SlideVQA, TAT-DQA, ArXivQA, SciQAG, DUDE, and CUAD. These documents cover domains such as academic research, industry reports, legal contracts, and scientific publications, with average lengths ranging from 15 to 147 pages. This large and heterogeneous corpus enables robust model training and supports generalization across domains. Together, the MMDocIR dataset provides a comprehensive resource for benchmarking and developing multi-modal document retrieval systems that require fine-grained understanding across page, layout, and modality levels.
+                </p>
+                <div style="text-align: center;">
+                  <img id="teaser2" style="max-width: 100%; height: auto;" src="static/images/dataset_overview2.png">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>            </div>
+            </b></font>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+<section class="section" id="Construction">
+  <div class="columns is-centered has-text-centered">
+    <div class="column is-six-fifths">
+      <h2 class="title is-3"> <span class="rainbow-text">MMDocIR</span> Construction</h2>
+    </div>
+  </div>
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column is-full-width">
+          <div class="content has-text-justified">
+            <p>
+              The annotation pipeline of <span class="rainbow-text">MMDocIR</span> includes three stages.
+              1.	
+              
+ <b>(1) Data collection:</b> We collect 364 long documents and 2,193 QA pairs from MMLongBench-Doc and DocBench, selecting datasets that include accessible original documents, diverse domains (e.g., academic, legal, financial), and rich multi-modal content such as text, figures, tables, and layouts. The average document length exceeds 65 pages, ensuring the benchmark reflects real-world document complexity.
+ <b>(2) Question Filtering & Adaptation:</b> To ensure alignment with retrieval objectives, we filter out questions that are unsuitable for document-based retrieval, including summarization-style queries, statistical aggregations, or those requiring external knowledge. Remaining questions are revised to ensure they target concrete, retrievable content within the documents.
+ <b>(3) Multi-level Annotation:</b> We annotate each question with two types of evidence labels. Page-level Labels: Annotators identify the exact pages that contain information necessary to answer the question. For example, in multi-page documents, locating the correct evidence page requires meticulous reading and verification. Layout-level Labels: Using the MinerU parser, we extract bounding boxes for five types of layout elements (text, image, table, title, equation). Annotators then select the specific layouts that provide evidence for each question. In cases where MinerU fails to detect relevant content, manual annotation is performed to ensure precision. This results in 2,638 layout-level labels for 1,658 questions, capturing fine-grained evidence at the block level.
+ <b>(4) Quality Assurance:</b> We implement a robust cross-validation process across two independent annotator groups. A 400-question overlap set is used for mutual validation, and an additional 50% of the annotations undergo random cross-checking. The final annotation consistency reaches 95.2 F1 for page-level and 87.1 F1 for layout-level labels, ensuring both reliability and accuracy.
+
+          
+          </div>
+          </b></font>
+    </div>
+  </div>
+</section>
+
+
+<section class="section" id="Evaluation">
+      <div class="columns is-centered has-text-centered">
+        <div class="column is-six-fifths">
+          <h2 class="title is-3"> <span class="rainbow-text">MMDocIR</span> Evaluation</h2>
+        </div>
+	    </div>
+	      <div class="container is-max-desktop">
+	        <div class="columns is-centered">
+	          <div class="column is-full-width">
+	            <div class="content has-text-justified">
+	              <p>
+                  We conduct comprehensive evaluations across page-level and layout-level retrieval using 11 retrievers (6 text-based and 5 visual-based). The retrievers are adapted for both tasks using dual-modality inputs (e.g., OCR-text, VLM-text, page screenshots). Our findings reveal:
+                <ul>
+                  <li> Visual Superiority: Visual retrievers consistently outperform text-based retrievers in both page-level and layout-level tasks, confirming the value of preserving visual cues through page screenshots or layout images.</li>
+                  <li> Impact of MMDocIR Training: Visual retrievers fine-tuned on the MMDocIR training set (e.g., Col-Phi3ours, DPR-Phi3ours) significantly outperform off-the-shelf models, validating the dataset’s utility for training robust multimodal retrievers.</li>
+                </ul>
+                <centering>
+                <div style="text-align: center;">
+                  <img id="teaser" width="85%" src="static/images/eval_result.png">
+                </div>
+                Futher fine-grained study reveals that
+                <ul>
+                  <li> VLM-text Advantage over OCR-text:Using GPT-4o-generated image descriptions (VLM-text) leads to better performance than standard OCR outputs, especially in capturing visual-semantic nuances missed by traditional text extractors.</li>
+                  <li> Token-level vs. Dense Embeddings: Token-level retrievers (e.g., ColBERT, ColPali) show marginal performance gains in top-k recall, especially Recall@1, over dense embedding models—but incur a significant storage overhead (~10x larger index size).</li>
+                </ul>
+                <br><br>
+
+            
+
+			 
+				 
+<footer class="footer">
+  <div class="container">
+    <div class="columns is-centered">
+      <div class="column is-8">
+        <div class="content">
+          <p>
+            This website is licensed under a <a rel="license"
+                                                href="http://creativecommons.org/licenses/by-sa/4.0/">Creative
+            Commons Attribution-ShareAlike 4.0 International License</a>.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+
+</body>
+</html>
