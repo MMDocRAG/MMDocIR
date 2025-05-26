@@ -1,52 +1,150 @@
-# MMDocIR: Benchmarking Multi-Modal Retrieval for Long Documents
-
-
-![image/png](static/images/top_figure1.png)
-
-
-## 1. Abstract
-Multi-modal document retrieval is designed to identify and retrieve various forms of multi-modal content, such as figures, tables, charts, and layout information from extensive documents.
-Despite its significance, there is a notable lack of a robust benchmark to effectively evaluate the performance of systems in multi-modal document retrieval.
-To address this gap, this work introduces a new benchmark, named as **MMDocIR**, encompassing two distinct tasks: **page-level** and **layout-level** retrieval. 
-**The former focuses on localizing the most relevant pages within a long document, while the latter targets the detection of specific layouts, offering a more fine-grained granularity than whole-page analysis.**
-A layout can refer to a variety of elements such as textual paragraphs, equations, figures, tables, or charts. 
-The MMDocIR benchmark comprises a rich dataset featuring expertly annotated labels for 1,685 questions and bootstrapped labels for 173,843 questions, making it a pivotal resource for advancing multi-modal document retrieval for both training and evaluation. 
-Through rigorous experiments, we reveal that 
-(i) visual retrievers significantly outperform their text counterparts; 
-(ii) MMDocIR train set can effectively benefit the training process of multi-modal document retrieval;
-(iii) text retrievers leveraging on VLM-text perform much better than those using OCR-text. 
-These findings underscores the potential advantages of integrating visual elements for multi-modal document retrieval.
-
-
-## 2. Task Setting
-### Page-level Retrieval
-The page-level retrieval task is designed to identify the most relevant pages within a document in response to a user query.
-
-### Layout-level Retrieval
-The layout-level retrieval aims to retrieve most relevant layouts. 
-The layouts are defined as the fine-grained elements such as paragraphs, equations, figures, tables, and charts. 
-This task allows for a more nuanced content retrieval, honing in on specific information that directly answers user queries.
-
-
-
-## 3. Evaluation Set
-### 3.1 Document Analysis
-
-**MMDocIR** evaluation set includes 313 long documents averaging 65.1 pages, categorized into ten main domains: research reports, administration&industry, tutorials&workshops, academic papers, brochures, financial reports, guidebooks, government documents, laws, and news articles. 
-Different domains feature distinct distributions of multi-modal information. For instance, research reports, tutorials, workshops, and brochures predominantly contain images, whereas financial and industry documents are table-rich. In contrast, government and legal documents primarily comprise text. Overall, the modality distribution is: Text (60.4%), Image (18.8%), Table (16.7%), and other modalities (4.1%).
-
-### 3.2 Question and Annotation Analysis
-**MMDocIR** evluation set encompasses 1,658 questions, 2,107 page labels, and 2,638 layout labels. The modalities required to answer these questions distribute across four categories: Text (44.7%), Image (21.7%), Table (37.4%), and Layout/Meta (11.5%). The ``Layout/Meta'' category encompasses questions related to layout information and meta-data statistics. 
-Notably, the dataset poses several challenges: 254 questions necessitate cross-modal understanding, 313 questions demand evidence across multiple pages, and 637 questions require reasoning based on multiple layouts. These complexities highlight the need for advanced multi-modal reasoning and contextual understanding.
-
-
-## 4. Train Set
+<p align="center">
+  <h1 align="center">MMDocIR: Benchmarking Multi-Modal Retrieval for Long Documents</h1>
+    <p align="center">
+    <strong>Kuicai Dong</strong></a>
+    ·
+    <strong>Yujing Chang</strong>
+    ·
+    <strong>Xin Deik Goh</strong>
+    ·
+    <strong>Dexun Li</strong>
+    ·
+    <a href="https://scholar.google.com/citations?user=fUtHww0AAAAJ&hl=en"><strong>Ruiming Tang</strong></a>
+    ·
+    <a href="https://stephenliu0423.github.io/"><strong>Yong Liu</strong></a>
+  </p>
+  <!-- <h2 align="center">Submitted to arXiv</h2> -->
+  📖<a href="https://arxiv.org/abs/2501.08828">Paper</a> |🏠<a href="https://mmdocrag.github.io/MMDocIR/">Homepage</a></h3>|🤗<a 
+href="https://huggingface.co/MMDocIR">Huggingface</a></h3>
+<div align="center"></div>
+<p align="center">
+  <p>
+Multimodal document retrieval aims to identify and retrieve various forms of multimodal content, such as figures, tables, charts, and layout information from extensive documents. Despite its increasing popularity, there is a notable lack of a comprehensive and robust benchmark to effectively evaluate the performance of systems in such tasks. To address this gap, this work introduces a new benchmark, named MMDocIR, that encompasses two distinct tasks: page-level and layout-level retrieval. The former evaluates the performance of identifying the most relevant pages within a long document, while the later assesses the ability of detecting specific layouts, providing a more fine-grained measure than whole-page analysis. A layout
+refers to a variety of elements, including textual paragraphs, equations, figures, tables, or charts. The MMDocIR benchmark comprises a rich dataset featuring 1,685 questions annotated by experts and 173,843 questions with bootstrapped labels, making it a valuable resource in multimodal document retrieval for
+both training and evaluation. Through rigorous experiments, we demonstrate that (i) visual retrievers significantly outperform their text counterparts, (ii) MMDocIR training set effectively enhances the performance of multimodal document retrieval and (iii) text retrievers leveraging VLM-text significantly outperforms retrievers relying on OCR-text.
+  </p>
+  <a href="">
+    <img src="static/images/top_figure1.png" alt="Logo" width="100%">
+  </a>
+<br>
 
 
 
 
-## Citation
-If you use any datasets from this organization in your research, please cite the original dataset as follows:
+
+## 🔮Evalulation Dataset
+
+### 1. Download Datasets 
+
+Download `MMDocIR_pages.parquet` and `MMDocIR_layouts.parquet` from huggingface: [MMDocIR/MMDocIR_Evaluation_Dataset](https://huggingface.co/datasets/MMDocIR/MMDocIR_Evaluation_Dataset)
+
+Place two parquet files under `./dataset`
+
+
+
+### 2. Download Retriever Checkpoints 
+
+Download relavent retrievers (either text or visual retrievers) from huggingface: [MMDocIR/MMDocIR_Retrievers](https://huggingface.co/MMDocIR/MMDocIR_Retrievers). The list of available retrievers are as follows:
+
+- BGE: [bge-large-en-v1.5](https://huggingface.co/MMDocIR/MMDocIR_Retrievers/tree/main/bge-large-en-v1.5)
+- ColBERT: [colbertv2.0](https://huggingface.co/MMDocIR/MMDocIR_Retrievers/tree/main/colbertv2.0)
+- E5: [e5-large-v2](https://huggingface.co/MMDocIR/MMDocIR_Retrievers/tree/main/e5-large-v2)
+- GET: [gte-large](https://huggingface.co/MMDocIR/MMDocIR_Retrievers/tree/main/gte-large)
+- Contriever: [contriever-msmarco](https://huggingface.co/MMDocIR/MMDocIR_Retrievers/tree/main/contriever-msmarco)
+- DPR
+  - question encoder: [dpr-question_encoder-multiset-base](https://huggingface.co/MMDocIR/MMDocIR_Retrievers/tree/main/dpr-question_encoder-multiset-base)
+  - passage encoder: [dpr-ctx_encoder-multiset-base](https://huggingface.co/MMDocIR/MMDocIR_Retrievers/tree/main/dpr-ctx_encoder-multiset-base)
+- ColPali
+  - retriever adapter: [colpali-v1.1](https://huggingface.co/MMDocIR/MMDocIR_Retrievers/tree/main/colpali-v1.1)
+  - retriever base VLM: [colpaligemma-3b-mix-448-base](https://huggingface.co/MMDocIR/MMDocIR_Retrievers/tree/main/colpaligemma-3b-mix-448-base)
+- ColQwen
+  - retriever adapter: [colqwen2-v1.0](https://huggingface.co/MMDocIR/MMDocIR_Retrievers/tree/main/colqwen2-v1.0)
+  - retriever base VLM: [colqwen2-base](https://huggingface.co/MMDocIR/MMDocIR_Retrievers/tree/main/colqwen2-base)
+- DSE-wikiss
+- DSE-docmatix
+
+Place these checkpoints under `./checkpoint`
+
+#### Environment
+
+```bash
+python 3.9
+torch2.4.0+cu121
+transformers==4.45.0
+sentence-transformers==2.2.2
+colbert-ai==0.2.21
+```
+
+
+
+### 3. Inference Command
+
+You can infer using the command:
+
+```bash
+python encode.py BGE --bs 256 --mode vlm_text --encode query,page,layout
+```
+
+>`model` : the model name for example "BGE", is compulsory. All available models are `["BGE", "E5", "GTE", "Contriever", "DPR", "ColBERT", "ColPali", "ColQwen", "DSE-docmatix", "DSE-wikiss"]`
+>
+>`--mode` parameter (`choices=['vlm_text', 'oct_text', 'image_binary'], default='vlm_text'`) is to control passing pages or layouts as either vlm_text, ocr_text, or binary_image. 
+>
+>`--encode` parameter (`default="query,page,layout"`) is by default encode for all queries, pages, and layouts. 
+>
+>- You can encode select any of [query, page, layout] and use `,` to seperate. 
+>- For example:  encoding query and page is via `--encode query,page` , encoding page only is via `--encode page`.
+
+
+
+### 4. For evaluation
+
+You can infer using the command:
+
+```bash
+python search.py BGE --encode page,layout --encode_path encode
+```
+
+>`model` : the model name for example "BGE", is compulsory. All available models are `["BGE", "E5", "GTE", "Contriever", "DPR", "ColBERT", "ColPali", "ColQwen", "DSE-docmatix", "DSE-wikiss"]`
+>
+>`--encode` parameter (`default="page,layout"`) is by default score topk recall for page-level and layout-level. 
+>
+>- You can obtain only page-level scores via `--encode page` ,  or layout-level scores via `--encode layout`.
+>
+>`--encode_path` parameter (`default="encode"`)  to indicate the stored embedding of query, page, and layout.
+>
+>- For example, to score BGE results, by default we look for 3 pikle files named:
+>  -  `./encode/encoded_query_BGE.pkl`
+>  -  `./encode/encoded_page_BGE.pkl`
+>  -  `./encode/encoded_layout_BGE.pkl`
+
+
+
+
+
+## 🛠️Evalulation Dataset
+
+### 1. Download Datasets 
+
+Download  all [parquet](https://huggingface.co/datasets/MMDocIR/MMDocIR_Train_Dataset/tree/main/parquet) and [json line](https://huggingface.co/datasets/MMDocIR/MMDocIR_Train_Dataset/tree/main/annotations_top1_negative) files from huggingface: [MMDocIR/MMDocIR_Train_Dataset](https://huggingface.co/datasets/MMDocIR/MMDocIR_Train_Dataset)
+
+
+
+## 2. Dataset Class
+
+Refer to [train_dataset.py](https://huggingface.co/datasets/MMDocIR/MMDocIR_Train_Dataset/blob/main/train_dataset.py)
+
+
+
+### 3. Training Code
+
+Coming soon
+
+
+
+
+
+
+## 💾Citation
 ```
 @misc{dong2025mmdocirbenchmarkingmultimodalretrieval,
       title={MMDocIR: Benchmarking Multi-Modal Retrieval for Long Documents}, 
@@ -58,3 +156,10 @@ If you use any datasets from this organization in your research, please cite the
       url={https://arxiv.org/abs/2501.08828}, 
 }
 ```
+
+
+
+## 📄 License
+
+![Code License](https://img.shields.io/badge/Code%20License-Apache_2.0-green.svg) ![Data License](https://img.shields.io/badge/Data%20License-CC%20By%20NC%204.0-red.svg) **Usage and License Notices**: The data and code are intended and licensed for research use only.
+License: Attribution-NonCommercial 4.0 International It should abide by the policy of OpenAI: https://openai.com/policies/terms-of-use
