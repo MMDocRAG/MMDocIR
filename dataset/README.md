@@ -2,7 +2,7 @@
 
 
 
-## Dataset Overview
+## Evaluation Set Overview
 
 **MMDocIR** evaluation set includes 313 long documents averaging 65.1 pages, categorized into ten main domains: research reports, administration&industry, tutorials&workshops, academic papers, brochures, financial reports, guidebooks, government documents, laws, and news articles. Different domains feature distinct distributions of multi-modal information. Overall, the modality distribution is: Text (60.4%), Image (18.8%), Table (16.7%), and other modalities (4.1%).
 
@@ -27,9 +27,16 @@ Each QA item consists of :
 | ---------------- | ------ | ------------------------------------------------------ |
 | `Q`              | string | questions                                              |
 | `A`              | string | answer                                                 |
-| `page_id`        | list[] | the list of page ids for ground truth evidence         |
 | `type`           | string | the modality type of the question                      |
+| `page_id`        | list[] | the list of page ids for ground truth evidence         |
 | `layout_mapping` | list[] | list of layout labels with `page`, `page_size`, `bbox` |
+
+Each layout item consists of:
+| Name        | Type   | Description                               |
+| ----------- | ------ | ----------------------------------------- |
+| `page`      | int    | the page id of current layout label       |
+| `page_size` | list[] | page size as `[width, height]`            |
+| `bbox`      | list[] | bounding box coordinates: `[x1,y1,x2,y2]` |
 
 
 
@@ -72,4 +79,30 @@ Each QA item consists of :
 
 # Training Datasets
 
-coming soon
+
+
+## Training Set Overview
+
+**MMDocIR** training set includes 6,878 long documents averaging 32.6 pages, categorized into assorted domains. Different domains feature distinct distributions of multi-modal information. Overall, the modality distribution is: Text (49.3%), Image (34.3%), Table (10.8%), and other modalities (4.9%).
+
+**MMDocIR** training set encompasses 73,843 questions.
+
+| Training Set | Label File | Parquet File | Layout Labels|
+| ------------ | ---------- | ------------ | :----------: |
+| ArxivQA | [ArxivQA_train.jsonl](https://huggingface.co/datasets/MMDocIR/MMDocIR_Train_Dataset/blob/main/annotations_top1_negative/ArxivQA_train.jsonl) | [ArxivQA_filter.parquet](https://huggingface.co/datasets/MMDocIR/MMDocIR_Train_Dataset/blob/main/parquet/ArxivQA_filter.parquet) |:heavy_check_mark:|
+| DUDE | [DUDE_train.jsonl](https://huggingface.co/datasets/MMDocIR/MMDocIR_Train_Dataset/blob/main/annotations_top1_negative/DUDE_train.jsonl) | [DUDE_filter.parquet](https://huggingface.co/datasets/MMDocIR/MMDocIR_Train_Dataset/blob/main/parquet/DUDE_filter.parquet) |:heavy_check_mark:|
+| SciQAG | [SciQAG_train.jsonl](https://huggingface.co/datasets/MMDocIR/MMDocIR_Train_Dataset/blob/main/annotations_top1_negative/SciQAG_train.jsonl) | [SciQAG_filter.parquet](https://huggingface.co/datasets/MMDocIR/MMDocIR_Train_Dataset/blob/main/parquet/SciQAG_filter.parquet) |:heavy_check_mark:|
+| SlideVQA | [SlideVQA_train.jsonl](https://huggingface.co/datasets/MMDocIR/MMDocIR_Train_Dataset/blob/main/annotations_top1_negative/SlideVQA_train.jsonl) | [SlideVQA_filter.parquet](https://huggingface.co/datasets/MMDocIR/MMDocIR_Train_Dataset/blob/main/parquet/SlideVQA_filter.parquet) |:x:|
+| TAT-DQA | [TAT-DQA_train.jsonl](https://huggingface.co/datasets/MMDocIR/MMDocIR_Train_Dataset/blob/main/annotations_top1_negative/TAT-DQA_train.jsonl) | [TAT-DQA_filter.parquet](https://huggingface.co/datasets/MMDocIR/MMDocIR_Train_Dataset/blob/main/parquet/TAT-DQA_filter.parquet) |:heavy_check_mark:|
+| Wiki-SS | [Wiki-ss_train.jsonl](https://huggingface.co/datasets/MMDocIR/MMDocIR_Train_Dataset/blob/main/annotations_top1_negative/Wiki-ss_train.jsonl) | [Wiki-ss_filter.parquet](https://huggingface.co/datasets/MMDocIR/MMDocIR_Train_Dataset/blob/main/parquet/Wiki-ss_filter.parquet) |:x:|
+| MP-DocVQA |  |  |:x:|
+
+
+
+## Dataset Format
+
+For `xxxx_train.jsonl`
+
+
+
+For `.parquet`
