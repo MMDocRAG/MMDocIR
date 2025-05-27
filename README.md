@@ -38,32 +38,35 @@ both training and evaluation. Through rigorous experiments, we demonstrate that 
 
 Download `MMDocIR_pages.parquet` and `MMDocIR_layouts.parquet` from huggingface: [MMDocIR/MMDocIR_Evaluation_Dataset](https://huggingface.co/datasets/MMDocIR/MMDocIR_Evaluation_Dataset)
 
-Place two parquet files under `./dataset`
+Place two parquet files under [`./dataset/`](https://github.com/MMDocRAG/MMDocIR/tree/main/dataset)
 
 
 
 ### 2. Download Retriever Checkpoints 
 
-Download relavent retrievers (either text or visual retrievers) from huggingface: [MMDocIR/MMDocIR_Retrievers](https://huggingface.co/MMDocIR/MMDocIR_Retrievers). The list of available retrievers are as follows:
+Download relavent retrievers (either text or visual retrievers) from huggingface: [MMDocIR/MMDocIR_Retrievers](https://huggingface.co/MMDocIR/MMDocIR_Retrievers).
 
-- BGE: [bge-large-en-v1.5](https://huggingface.co/MMDocIR/MMDocIR_Retrievers/tree/main/bge-large-en-v1.5)
-- ColBERT: [colbertv2.0](https://huggingface.co/MMDocIR/MMDocIR_Retrievers/tree/main/colbertv2.0)
-- E5: [e5-large-v2](https://huggingface.co/MMDocIR/MMDocIR_Retrievers/tree/main/e5-large-v2)
-- GET: [gte-large](https://huggingface.co/MMDocIR/MMDocIR_Retrievers/tree/main/gte-large)
-- Contriever: [contriever-msmarco](https://huggingface.co/MMDocIR/MMDocIR_Retrievers/tree/main/contriever-msmarco)
-- DPR
+**For text retrievers**:
+- **BGE**: [bge-large-en-v1.5](https://huggingface.co/MMDocIR/MMDocIR_Retrievers/tree/main/bge-large-en-v1.5)
+- **ColBERT**: [colbertv2.0](https://huggingface.co/MMDocIR/MMDocIR_Retrievers/tree/main/colbertv2.0)
+- **E5**: [e5-large-v2](https://huggingface.co/MMDocIR/MMDocIR_Retrievers/tree/main/e5-large-v2)
+- **GTE**: [gte-large](https://huggingface.co/MMDocIR/MMDocIR_Retrievers/tree/main/gte-large)
+- **Contriever**: [contriever-msmarco](https://huggingface.co/MMDocIR/MMDocIR_Retrievers/tree/main/contriever-msmarco)
+- **DPR**
   - question encoder: [dpr-question_encoder-multiset-base](https://huggingface.co/MMDocIR/MMDocIR_Retrievers/tree/main/dpr-question_encoder-multiset-base)
   - passage encoder: [dpr-ctx_encoder-multiset-base](https://huggingface.co/MMDocIR/MMDocIR_Retrievers/tree/main/dpr-ctx_encoder-multiset-base)
-- ColPali
+
+**For visual retrievers**:
+- **ColPali**
   - retriever adapter: [colpali-v1.1](https://huggingface.co/MMDocIR/MMDocIR_Retrievers/tree/main/colpali-v1.1)
   - retriever base VLM: [colpaligemma-3b-mix-448-base](https://huggingface.co/MMDocIR/MMDocIR_Retrievers/tree/main/colpaligemma-3b-mix-448-base)
-- ColQwen
+- **ColQwen**
   - retriever adapter: [colqwen2-v1.0](https://huggingface.co/MMDocIR/MMDocIR_Retrievers/tree/main/colqwen2-v1.0)
   - retriever base VLM: [colqwen2-base](https://huggingface.co/MMDocIR/MMDocIR_Retrievers/tree/main/colqwen2-base)
-- DSE-wikiss
-- DSE-docmatix
+- **DSE-wikiss**: [dse-phi3-v1](https://huggingface.co/MMDocIR/MMDocIR_Retrievers/tree/main/dse-phi3-v1)
+- **DSE-docmatix**: [dse-phi3-docmatix-v2](https://huggingface.co/MMDocIR/MMDocIR_Retrievers/tree/main/dse-phi3-docmatix-v2)
 
-Place these checkpoints under `./checkpoint`
+Place these checkpoints under [`./checkpoint/`](https://github.com/MMDocRAG/MMDocIR/tree/main/checkpoint)
 
 #### Environment
 
@@ -71,8 +74,9 @@ Place these checkpoints under `./checkpoint`
 python 3.9
 torch2.4.0+cu121
 transformers==4.45.0
-sentence-transformers==2.2.2
-colbert-ai==0.2.21
+sentence-transformers==2.2.2   # for BGE, GTE, E5 retrievers
+colbert-ai==0.2.21             # for colbert retriever
+flash-attn==2.7.4.post1        # for DSE retrievers with flash attention
 ```
 
 
@@ -121,7 +125,7 @@ python search.py BGE --encode page,layout --encode_path encode
 
 
 
-## 🛠️Evalulation Dataset
+## 🛠️Training Dataset
 
 ### 1. Download Datasets 
 
