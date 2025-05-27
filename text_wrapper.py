@@ -2,6 +2,15 @@ import torch
 import numpy as np
 from tqdm import tqdm
 
+def is_str_list(obj): # Checks if it's a list and all elements are strings
+    return isinstance(obj, list) and all(isinstance(item, str) for item in obj)
+
+def is_np_list(obj): # Checks if it's a list and all elements are np.ndarray
+    return isinstance(obj, list) and all(isinstance(item, np.ndarray) for item in obj)
+
+def is_np_array(obj): # Checks if it's a np.ndarray
+    return isinstance(obj, np.ndarray)
+
 class Sent_Retriever:
     def __init__(self, bs=256, use_gpu=True):
         self.bs = bs
@@ -19,8 +28,20 @@ class Sent_Retriever:
         return embeddings
 
     def score(self, queries, quotes):
-        query_emb = np.asarray(self.embed_queries(queries))
-        quote_emb = np.asarray(self.embed_quotes(quotes))
+        if is_str_list(queries):
+            query_emb = np.asarray(self.embed_queries(queries))
+        elif is_np_list(queries):
+            query_emb = np.asarray(queries)
+        elif is_np_array(queries):
+            query_emb = queries
+        
+        if is_str_list(quotes):
+            quote_emb = np.asarray(self.embed_quotes(quotes))
+        elif is_np_list(quotes):
+            quote_emb = np.asarray(quotes)
+        elif is_np_array(quotes):
+            quote_emb = quotes
+
         return (query_emb @ quote_emb.T).tolist()
 
     def get_tok_len(self, text_input):
@@ -93,11 +114,10 @@ class GTE(Sent_Retriever):
         return self.embed_passages(quotes)
 
 
-
 class Contriever():
-    def __init__(self, bs = 256, use_gpu= True):
+    def __init__(self, bs = 256, use_gpu= True, model_path='checkpoint/contriever-msmarco'):
         from transformers import AutoTokenizer, AutoModel
-        self.model_path = 'checkpoint/contriever-msmarco'
+        self.model_path = model_path
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_path)
         self.model = AutoModel.from_pretrained(self.model_path)
         self.bs = bs
@@ -133,21 +153,32 @@ class Contriever():
                 quote_embeddings.extend([q.cpu().detach().numpy() for q in batched_quote_embs])
         return quote_embeddings
 
-    def score(self, query, quotes):
-        query_emb = np.asarray(self.embed_queries(query))
-        quote_emb = np.asarray(self.embed_quotes(quotes))
-        scores = (query_emb @ quote_emb.T).tolist()
-        return scores
+    def score(self, queries, quotes):
+        if is_str_list(queries):
+            query_emb = np.asarray(self.embed_queries(queries))
+        elif is_np_list(queries):
+            query_emb = np.asarray(queries)
+        elif is_np_array(queries):
+            query_emb = queries
+        
+        if is_str_list(quotes):
+            quote_emb = np.asarray(self.embed_quotes(quotes))
+        elif is_np_list(quotes):
+            quote_emb = np.asarray(quotes)
+        elif is_np_array(quotes):
+            quote_emb = quotes
+
+        return (query_emb @ quote_emb.T).tolist()
 
 
 class DPR():
-    def __init__(self, bs = 256, use_gpu= True):
+    def __init__(self, bs = 256, use_gpu=True, model_path="checkpoint"):
         from transformers import DPRContextEncoder, DPRContextEncoderTokenizer, DPRQuestionEncoder, DPRQuestionEncoderTokenizer
-        self.model_path = "checkpoint/"
-        self.query_tok = DPRQuestionEncoderTokenizer.from_pretrained(self.model_path +"dpr-question_encoder-multiset-base")
-        self.query_enc = DPRQuestionEncoder.from_pretrained(self.model_path +"dpr-question_encoder-multiset-base")
-        self.ctx_tok = DPRContextEncoderTokenizer.from_pretrained(self.model_path +"dpr-ctx_encoder-multiset-base")
-        self.ctx_enc = DPRContextEncoder.from_pretrained(self.model_path +"dpr-ctx_encoder-multiset-base")
+        self.model_path = model_path
+        self.query_tok = DPRQuestionEncoderTokenizer.from_pretrained(self.model_path +"/dpr-question_encoder-multiset-base")
+        self.query_enc = DPRQuestionEncoder.from_pretrained(self.model_path +"/dpr-question_encoder-multiset-base")
+        self.ctx_tok = DPRContextEncoderTokenizer.from_pretrained(self.model_path +"/dpr-ctx_encoder-multiset-base")
+        self.ctx_enc = DPRContextEncoder.from_pretrained(self.model_path +"/dpr-ctx_encoder-multiset-base")
         self.bs = bs
         print("[text_wrapper.py - init] Setting up DPR...")
         print("[text_wrapper.py - init] DPR is loaded from '{}'...".format( self.model_path ))
@@ -187,19 +218,30 @@ class DPR():
                 quote_embeddings.extend(quote_emb)
         return quote_embeddings
 
-    def score(self, query, quotes):
-        query_emb = np.asarray(self.embed_queries(query))
-        quote_emb = np.asarray(self.embed_quotes(quotes))
-        scores = (query_emb @ quote_emb.T).tolist()
-        return scores
+    def score(self, queries, quotes):
+        if is_str_list(queries):
+            query_emb = np.asarray(self.embed_queries(queries))
+        elif is_np_list(queries):
+            query_emb = np.asarray(queries)
+        elif is_np_array(queries):
+            query_emb = queries
+        
+        if is_str_list(quotes):
+            quote_emb = np.asarray(self.embed_quotes(quotes))
+        elif is_np_list(quotes):
+            quote_emb = np.asarray(quotes)
+        elif is_np_array(quotes):
+            quote_emb = quotes
+
+        return (query_emb @ quote_emb.T).tolist()
 
 
 class ColBERTReranker:
-    def __init__(self, bs = 256, use_gpu= True):
+    def __init__(self, bs = 256, use_gpu= True, model_path="checkpoint/colbertv2.0"):
         from colbert.modeling.colbert import ColBERT
         from colbert.infra import ColBERTConfig
         from transformers import AutoTokenizer
-        self.model_path = "checkpoint/colbertv2.0"
+        self.model_path = model_path
         self.bs = bs
         config = ColBERTConfig(bsize=bs, root='./', query_token_id='[Q]', doc_token_id='[D]')
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_path)
@@ -231,8 +273,6 @@ class ColBERTReranker:
                     length = mask.sum().item()  # Number of true tokens in this sequence
                     np_emb = emb[:length].cpu().numpy()  # Shape: [L, H]
                     query_embeddings.append(np_emb)      # `L` varies per example
-
-        # torch.cuda.empty_cache()
         return query_embeddings
 
     @staticmethod
@@ -274,49 +314,32 @@ class ColBERTReranker:
             return quote_embeddings, quote_masks
         return quote_embeddings
 
-
     @staticmethod
     def colbert_score(query_embed, quote_embeddings, quote_masks):
         Q, H = query_embed.shape # [Q, H]
         N, L, _ = quote_embeddings.shape # [N, L, H]
-        # 1. Compute [Q, N, L] (similarity btw every query token to every quote token)
-        # Expand query to [Q, 1, 1, H], quote_embeddings to [1, N, L, H]
         query_expanded = query_embed[:, np.newaxis, np.newaxis, :]         # [Q, 1, 1, H]
         quote_expanded = quote_embeddings[np.newaxis, :, :, :]             # [1, N, L, H]
         sim = np.matmul(query_expanded, np.transpose(quote_expanded, (0 ,1 ,3 ,2)))  # (Q, N, 1, L)
-        # But let's use broadcasting for dot product:
-        # sim[q, n, l] = np.dot(query_embed[q], quote_embeddings[n,l])
         sim = np.einsum('qh,nlh->qnl', query_embed, quote_embeddings)      # [Q, N, L]
-        # 2. Mask invalid tokens
-        sim = np.where(quote_masks[np.newaxis, :, : ]==1, sim, -1e9)        # [Q, N, L]
-        # 3. MaxSim: For each query token, take max over quote tokens (L dimension)
-        maxsim = sim.max(-1)                                               # [Q, N]
-        # 4. Aggregate (sum over query tokens)
-        scores = maxsim.sum(axis=0)                                        # [N]
+        sim = np.where(quote_masks[np.newaxis, :, : ]==1, sim, -1e9)   # Mask invalid tokens [Q, N, L]
+        maxsim = sim.max(-1)   # MaxSim: For each query token, take max over quote tokens [Q, N]
+        scores = maxsim.sum(axis=0)  # Aggregate (sum over query tokens) [N]
         return scores
 
-    def score(self, query, quotes):
-        query_embeddings = self.embed_queries(query)
-        quote_embeddings, quote_masks = self.embed_quotes(quotes, pad_token_len=True)
+    def score(self, queries, quotes):
+        if is_str_list(queries):
+            query_embed = self.embed_queries(queries)
+        elif is_np_list(queries):
+            query_embed = queries
+
+        if is_str_list(quotes):
+            quote_embed, quote_masks = self.embed_quotes(quotes, pad_token_len=True)
+        elif is_np_list(quotes):
+            quote_embed, quote_masks = self.pad_tok_len(quotes)
+
         scores_list = []
-        for query_embed in query_embeddings:
-            scores = self.colbert_score(query_embed, quote_embeddings, quote_masks)
+        for q_embed in query_embed:
+            scores = self.colbert_score(q_embed, quote_embed, quote_masks)
             scores_list.append(scores.tolist())
         return scores_list
-
-
-if __name__ == "__main__":
-    # m = BGE()
-    # m = E5()
-    m = DPR()
-    # m = GTE()
-    # m = Contriever()
-    # m = ColBERTReranker()
-    query = ['how much protein should a female eat', 'how much protein should a female eat']
-    passage = [
-        "As a general guideline, the CDC's average requirement of protein for women ages 19 to 70 is 46 grams per day. But, as you can see from this chart, you'll need to increase that if you're expecting or training for a marathon. Check out the chart below to see how much protein you should be eating each day.",
-        "Definition of summit for English Language Learners. : 1  the highest point of a mountain : the top of a mountain. : 2  the highest level. : 3  a meeting or series of meetings between the leaders of two or more governments.",
-        "Definition of summit for English Language Learners. : 1  the highest point of a mountain : the top of a mountain. : 2  the highest level. : 3  a meeting or series of meetings between the leaders of two or more governments."
-    ]
-    s = m.score(query, passage)
-    print(s)
