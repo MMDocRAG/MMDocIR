@@ -10,6 +10,14 @@
 
 
 
+## Download
+
+Download [`MMDocIR_pages.parquet`](https://huggingface.co/datasets/MMDocIR/MMDocIR_Evaluation_Dataset/blob/main/MMDocIR_pages.parquet) and [`MMDocIR_layouts.parquet`](https://huggingface.co/datasets/MMDocIR/MMDocIR_Evaluation_Dataset/blob/main/MMDocIR_layouts.parquet) from huggingface: [MMDocIR/MMDocIR_Evaluation_Dataset](https://huggingface.co/datasets/MMDocIR/MMDocIR_Evaluation_Dataset)
+
+Place two parquet files under current directory.
+
+
+
 ## Dataset Format
 
 [`MMDocIR_annotations.jsonl`](https://github.com/MMDocRAG/MMDocIR/blob/main/dataset/MMDocIR_annotations.jsonl) contains 313 json lines, each for the annotations corresponding to a long document.

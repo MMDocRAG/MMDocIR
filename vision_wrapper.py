@@ -6,23 +6,158 @@ from tqdm import tqdm
 from PIL import Image
 import numpy as np
 import io
+import json
 
-from transformers import AutoProcessor
+from transformers import AutoModelForCausalLM, AutoProcessor
 from transformers.models.paligemma.modeling_paligemma import (
     PaliGemmaConfig,
     PaliGemmaForConditionalGeneration,
     PaliGemmaPreTrainedModel,
 )
+from transformers.models.qwen2_vl import Qwen2VLForConditionalGeneration, Qwen2VLConfig
 
-from transformers.models.qwen2_vl import (
-    Qwen2VLForConditionalGeneration, 
-    Qwen2VLConfig,
-)
+
+class DSE(nn.Module):
+    def __init__(self, model_name="checkpoint/dse-phi3-v1", lora_adapter=None, bs=4, flash_attn=True):
+        super().__init__() # "checkpoint/dse-phi3-docmatix-v2" "checkpoint/dse-phi3-v1.0"
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        def set_attention_implementation(model_name, flash_attn):
+            config_path = f"{model_name}/config.json"
+            with open(config_path, "r") as f:
+                config = json.load(f)
+            config["_attn_implementation"] = "flash_attention_2" if flash_attn else None
+            with open(config_path, "w") as f:
+                json.dump(config, f, indent=2)
+
+        set_attention_implementation(model_name, flash_attn)
+        self.model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch.bfloat16, trust_remote_code=True, use_cache=False)
+        self.model.config.pad_token_id = self.model.config.eos_token_id
+        if lora_adapter:
+            self.model = self.model.load_adapter(lora_adapter)
+        self.model = self.model.to(self.device)  # First move to primary GPU
+        if torch.cuda.device_count() > 1:
+            print(f"Using {torch.cuda.device_count()} GPUs!")
+            self.model = torch.nn.DataParallel(self.model)
+        self.processor = AutoProcessor.from_pretrained(model_name, trust_remote_code=True)
+        self.bs = bs
+        self.bs_query = 64
+
+    def embed_queries(self, queries):
+        if isinstance(queries, str):
+            queries = [queries]
+        embeddings = []
+        dataloader = DataLoader(
+            queries, batch_size=self.bs_query, shuffle=False,
+            collate_fn=lambda xs: self.process_queries(xs)
+        )
+        with torch.no_grad():
+            for batch in tqdm(dataloader, desc="[DSE] Embedding queries"):
+                reps = self.encode(batch)
+                embeddings.extend(reps.cpu().float().numpy())
+        return embeddings
+
+    def embed_quotes(self, images, hybrid=False):
+        if not hybrid:
+            if isinstance(images, (Image.Image, bytes, bytearray)):
+                images = [images]
+            embeddings = []
+            dataloader = DataLoader(
+                images, batch_size=self.bs, shuffle=False,
+                collate_fn=lambda xs: self.process_images(xs)
+            )
+            with torch.no_grad():
+                for batch in tqdm(dataloader, desc="[DSE] Embedding quotes in images"):
+                    reps = self.encode(batch)
+                    embeddings.extend(reps.cpu().float().numpy())
+            return embeddings
+        else: # input quotes in text format
+            if isinstance(images, str):
+                images = [images]
+            embeddings = []
+            dataloader = DataLoader(
+                images, batch_size=self.bs_query, shuffle=False,
+                collate_fn=lambda xs: self.process_image_texts(xs)
+            )
+            with torch.no_grad():
+                for batch in tqdm(dataloader, desc="[DSE] Embedding quotes in texts"):
+                    reps = self.encode(batch)
+                    embeddings.extend(reps.cpu().float().numpy())
+            return embeddings
+        
+    def encode(self, batch):
+        outputs = self.model(**{k: v.to(self.device) for k, v in batch.items()}, return_dict=True, output_hidden_states=True)
+        hs = outputs.hidden_states[-1]
+        reps = self._pool(hs, batch['attention_mask'].to(self.device))
+        return reps
+
+    def _pool(self, last_hidden_state, attention_mask):
+        sequence_lengths = attention_mask.sum(dim=1) - 1
+        batch_size = last_hidden_state.shape[0]
+        reps = last_hidden_state[torch.arange(batch_size, device=last_hidden_state.device), sequence_lengths]
+        return reps
+
+    def process_queries(self, queries):
+        if isinstance(queries, str):
+            queries = [queries]
+        prompts = [f"query: {q}</s>" for q in queries]
+        batch = self.processor(
+            prompts,
+            images=None,
+            return_tensors="pt",
+            padding="longest",
+            truncation=True,
+        )
+        return batch
+
+    def process_image_texts(self, passages):
+        if isinstance(passages, str):
+            passages = [passages]
+        prompts = [f"passage: {p}</s>" for p in passages]
+        batch = self.processor(
+            prompts,
+            images=None,
+            return_tensors="pt",
+            padding="longest",
+            max_length=600,
+            truncation=True,
+        )
+        return batch
+    
+    def process_images(self, images):
+        pil_images = []
+        for img in images:
+            if isinstance(img, Image.Image):
+                pil_img = img.resize((1344, 1344))
+            elif isinstance(img, (bytes, bytearray)):
+                pil_img = Image.open(io.BytesIO(img))
+                pil_img = pil_img.resize((1344, 1344))
+            else:
+                raise ValueError("Each image must be a PIL.Image.Image or bytes.")
+            pil_images.append(pil_img.convert("RGB"))
+        prompts = [f"<|image_{i+1}|>\nWhat is shown in this image?</s>" for i in range(len(pil_images))]
+        batch = self.processor(
+            prompts,
+            images=pil_images,
+            return_tensors="pt",
+            padding="longest",
+            truncation=True,
+        )
+        if batch['input_ids'].dim() == 3: # Squeeze batch dims if needed
+            batch['input_ids'] = batch['input_ids'].squeeze(0)
+            batch['attention_mask'] = batch['attention_mask'].squeeze(0)
+            if 'image_sizes' in batch:
+                batch['image_sizes'] = batch['image_sizes'].squeeze(0)
+        return batch
+
+    def score(self, query_embs, image_embs):
+        query_emb = np.asarray(query_embs)
+        quote_emb = np.asarray(image_embs)
+        scores = (query_emb @ quote_emb.T).tolist()
+        return scores
+
 
 class ColPali(PaliGemmaPreTrainedModel):
-    """
-    ColPali model implementation from the "ColPali: Efficient Document Retrieval with Vision Language Models" paper.
-    """
     def __init__(self, config: PaliGemmaConfig):
         super().__init__(config=config)
         model = PaliGemmaForConditionalGeneration(config=config)
@@ -34,8 +169,29 @@ class ColPali(PaliGemmaPreTrainedModel):
         self.post_init()
 
     def forward(self, *args, **kwargs) -> torch.Tensor:
-        # Delete output_hidden_states from kwargs
-        kwargs.pop("output_hidden_states", None)
+        kwargs.pop("output_hidden_states", None) # Delete output_hidden_states from kwargs
+        outputs = self.model(*args, output_hidden_states=True, **kwargs)  # (batch_size, sequence_length, hidden_size)
+        last_hidden_states = outputs.hidden_states[-1]  # (batch_size, sequence_length, hidden_size)
+        proj = self.custom_text_proj(last_hidden_states)  # (batch_size, sequence_length, dim)
+        # L2 normalization
+        proj = proj / proj.norm(dim=-1, keepdim=True)  # (batch_size, sequence_length, dim)
+        proj = proj * kwargs["attention_mask"].unsqueeze(-1)  # (batch_size, sequence_length, dim)
+        return proj
+
+
+class ColPali(PaliGemmaPreTrainedModel):
+    def __init__(self, config: PaliGemmaConfig):
+        super().__init__(config=config)
+        model = PaliGemmaForConditionalGeneration(config=config)
+        if model.language_model._tied_weights_keys is not None:
+            self._tied_weights_keys = [f"model.language_model.{k}" for k in model.language_model._tied_weights_keys]
+        self.model = model
+        self.dim = 128
+        self.custom_text_proj = nn.Linear(self.model.config.text_config.hidden_size, self.dim)
+        self.post_init()
+
+    def forward(self, *args, **kwargs) -> torch.Tensor:
+        kwargs.pop("output_hidden_states", None) # Delete output_hidden_states from kwargs
         outputs = self.model(*args, output_hidden_states=True, **kwargs)  # (batch_size, sequence_length, hidden_size)
         last_hidden_states = outputs.hidden_states[-1]  # (batch_size, sequence_length, hidden_size)
         proj = self.custom_text_proj(last_hidden_states)  # (batch_size, sequence_length, dim)
@@ -48,10 +204,9 @@ class ColPali(PaliGemmaPreTrainedModel):
 class ColPaliRetriever():
     def __init__(self, bs=4, use_gpu=True):
         self.bs = bs
-        self.bs_query = 64
+        self.bs_query = 32
         self.model_name = "checkpoint/colpali-v1.1"
         self.base_ckpt = "checkpoint/colpaligemma-3b-mix-448-base"
-        # Load model on cuda:0 by default!
         device = "cuda:0" if (torch.cuda.is_available() and use_gpu) else "cpu"
         self.model = ColPali.from_pretrained(
             self.base_ckpt, torch_dtype=torch.bfloat16, device_map=None  # <-- NONE: Don't use device_map
@@ -67,10 +222,8 @@ class ColPaliRetriever():
         else:
             self.device = torch.device(device)
         print(f"[ColPaliRetriever - init] ColPali loaded from '{self.base_ckpt}' (Adapter '{self.model_name}')...")
-        # Load processor
         self.processor = AutoProcessor.from_pretrained(self.model_name)
         self.mock_image = Image.new("RGB", (16, 16), color="black")
-
 
     def embed_queries(self, queries, pad=False):
         if isinstance(queries, str):
@@ -92,20 +245,33 @@ class ColPaliRetriever():
                         embeddings.append(emb_nonpad.cpu().float().numpy())
         return embeddings
 
-    def embed_quotes(self, images):
-        if isinstance(images, Image.Image):
-            images = [images]
-        embeddings = []
-        dataloader = DataLoader(images, batch_size=self.bs, shuffle=False,
-                                collate_fn=lambda x: self.process_images(x))
-        with torch.no_grad():
-            for batch in tqdm(dataloader, desc="[ColPaliRetriever] Embedding images"):
-                batch = {k: v.to(self.device) for k, v in batch.items()}
-                outputs = self.model(**batch)
-                for emb in torch.unbind(outputs):
-                    embeddings.append(emb.cpu().float().numpy())
-        return embeddings
-     
+    def embed_quotes(self, images, hybrid=False):
+        if not hybrid:
+            if isinstance(images, Image.Image):
+                images = [images]
+            embeddings = []
+            dataloader = DataLoader(images, batch_size=self.bs, shuffle=False,
+                                    collate_fn=lambda x: self.process_images(x))
+            with torch.no_grad():
+                for batch in tqdm(dataloader, desc="[ColPaliRetriever] Embedding quotes in images"):
+                    batch = {k: v.to(self.device) for k, v in batch.items()}
+                    outputs = self.model(**batch)
+                    for emb in torch.unbind(outputs):
+                        embeddings.append(emb.cpu().float().numpy())
+            return embeddings
+        else: # input quotes in text format
+            if isinstance(images, str):
+                images = [images]
+            embeddings = []
+            dataloader = DataLoader(images, batch_size=self.bs, shuffle=False,
+                                    collate_fn=lambda x: self.process_image_texts(x))
+            with torch.no_grad():
+                for batch in tqdm(dataloader, desc="[ColPaliRetriever] Embedding quotes in texts"):
+                    batch = {k: v.to(self.device) for k, v in batch.items()}
+                    outputs = self.model(**batch)
+                    for emb in torch.unbind(outputs):
+                        embeddings.append(emb.cpu().float().numpy())
+            return embeddings
 
     def process_queries(self, queries, max_length=512):
         texts_query = [f"Question: {q}" + "<pad>" * 10 for q in queries]
@@ -118,11 +284,36 @@ class ColPaliRetriever():
             max_length=max_length + sl   # fallback seq len
         )
         if "pixel_values" in batch_query: del batch_query["pixel_values"]
-        
         batch_query["input_ids"] = batch_query["input_ids"][..., sl :]
         batch_query["attention_mask"] = batch_query["attention_mask"][..., sl :]
         return batch_query
 
+    def process_image_texts(self, passages, max_length=600):
+        def truncate_passages(passages, max_words=400):
+            truncated = []
+            for passage in passages:
+                words = passage.split()
+                if len(words) > max_words:
+                    truncated_passage = ' '.join(words[:max_words])
+                else:
+                    truncated_passage = passage
+                truncated.append(truncated_passage)
+            return truncated
+        passages = truncate_passages(passages)
+        texts_passage = [f"Passage: {p}" + "<pad>" * 10 for p in passages]
+        sl = getattr(self.processor, "image_seq_length", 32) # 1024
+        batch_passage = self.processor(
+            images=[self.mock_image] * len(texts_passage),
+            text=texts_passage,
+            return_tensors="pt",
+            padding="longest",
+            max_length=max_length + sl   # fallback seq len
+        )
+        if "pixel_values" in batch_passage: del batch_passage["pixel_values"]
+        batch_passage["input_ids"] = batch_passage["input_ids"][..., sl :]
+        batch_passage["attention_mask"] = batch_passage["attention_mask"][..., sl :]
+        return batch_passage
+    
     def process_images(self, images): 
         pil_images = []
         for img in images:
@@ -135,44 +326,25 @@ class ColPaliRetriever():
             pil_images.append(pil_img.convert("RGB"))
         
         texts = ["Describe the image."] * len(pil_images)
-        batch_docs = self.processor(
-            text=texts,
-            images=pil_images,
-            return_tensors="pt",
-            padding="longest"
-        )
+        batch_docs = self.processor(text=texts, images=pil_images,  return_tensors="pt", padding="longest")
         return batch_docs
 
     def score(self, query_embs, image_embs):
-        """
-        Computes (batch) similarity scores MaxSim style.
-        Inputs:
-           query_embs: [Nq, seq, dim]
-           image_embs: [Ni, seq, dim]
-        Returns:
-           scores: [Nq, Ni] max similarity per query-image (like ColBERT)
-        """
         qs = [torch.from_numpy(e) for e in query_embs]
         ds = [torch.from_numpy(e) for e in image_embs]
         # MaxSim/colbert scoring: max dot product over sequence dimension
-        # shape: [Q, D]
         scores = np.zeros((len(qs), len(ds)), dtype=np.float32)
         for i, q in enumerate(qs):
             q = q.float()  # [Lq, d]
             for j, d in enumerate(ds):
                 d = d.float() # [Ld, d]
-                # score = max_{q_token, d_token} q_token @ d_token.T
                 sim = torch.matmul(q, d.T)    # [Lq, Ld]
                 maxsim = torch.max(sim, dim=1)[0].sum().item()  # colbert-style batch: sum-of-max over query tokens
                 scores[i, j] = maxsim
         return scores
 
 
-
 class ColQwen2(Qwen2VLForConditionalGeneration):
-    """
-    ColQwen2 model implementation.
-    """
     def __init__(self, config: Qwen2VLConfig):
         super().__init__(config)
         self.dim = 128
@@ -213,16 +385,10 @@ class ColQwen2Retriever:
         self.model_name = "checkpoint/colqwen2-v1.0"
         self.base_ckpt = "checkpoint/colqwen2-base"
         self.device = "cuda" if torch.cuda.is_available() and use_gpu else "cpu"
-
-        self.model = ColQwen2.from_pretrained(
-            self.base_ckpt,
-            torch_dtype=torch.bfloat16,
-            device_map=self.device
-        )
+        self.model = ColQwen2.from_pretrained(self.base_ckpt, torch_dtype=torch.bfloat16, device_map=self.device)
         self.model.load_adapter(self.model_name)
         self.model.eval()
 
-        # DataParallel:
         self.is_parallel = False
         if torch.cuda.device_count() > 1:
             print(f"Using {torch.cuda.device_count()} GPUs with DataParallel")
@@ -277,7 +443,6 @@ class ColQwen2Retriever:
                 raise ValueError("Each image must be a PIL.Image.Image or bytes.")
             pil_images.append(pil_img.convert("RGB"))
         
-        # Resize and convert
         resized_images = []
         for image in pil_images:
             orig_size = image.size
@@ -305,19 +470,27 @@ class ColQwen2Retriever:
         batch_doc["pixel_values"] = torch.stack(pixel_values)
         return batch_doc
 
-    def process_queries(self, queries, max_length=50, suffix=None):
+    def process_queries(self, queries, max_length=600, suffix=None):
         if suffix is None:
             suffix = "<pad>" * 10
         texts_query = []
         for q in queries:
             q_ = f"Query: {q}{suffix}"
             texts_query.append(q_)
-        batch_query = self.processor(
-            text=texts_query,
-            return_tensors="pt",
-            padding="longest",
-        )
+        batch_query = self.processor(text=texts_query, return_tensors="pt", padding="longest", max_length=600)
         return batch_query
+
+
+    def process_image_texts(self, passages, max_length=600, suffix=None):
+        if suffix is None:
+            suffix = "<pad>" * 10
+        texts_passage = []
+        for p in passages:
+            p_ = f"Passage: {p}{suffix}"
+            texts_passage.append(p_)
+        batch_passage = self.processor(text=texts_passage, return_tensors="pt", padding="longest", max_length=600)
+        return batch_passage
+    
 
     def embed_queries(self, queries, pad=False):
         if isinstance(queries, str):
@@ -325,8 +498,7 @@ class ColQwen2Retriever:
         embeddings = []
         dataloader = DataLoader(
             queries, batch_size=self.bs_query, shuffle=False,
-            collate_fn=lambda x: self.process_queries(x)
-        )
+            collate_fn=lambda x: self.process_queries(x))
         with torch.no_grad():
             # Use main device for DataParallel
             dev = self.model.device_ids[0] if self.is_parallel else self.model.device
@@ -343,25 +515,41 @@ class ColQwen2Retriever:
                         emb_nonpad = emb[mask.bool()]
                         embeddings.append(emb_nonpad.cpu().float().numpy())
         return embeddings
-
-    def embed_quotes(self, images):
-        if isinstance(images, Image.Image):
-            images = [images]
-        embeddings = []
-        dataloader = DataLoader(
-            images, batch_size=self.bs, shuffle=False,
-            collate_fn=lambda x: self.process_images(x)
-        )
-        with torch.no_grad():
-            dev = self.model.device_ids[0] if self.is_parallel else self.model.device
-            for batch in tqdm(dataloader, desc="[ColQwen2Retriever] Embedding images"):
-                batch = {k: v.to(dev) for k, v in batch.items()}
-                outputs = self.model(**batch)
-                for emb in torch.unbind(outputs):
-                    embeddings.append(emb.cpu().float().numpy())
-        return embeddings
     
 
+    def embed_quotes(self, images, hybrid=False):
+        if not hybrid:
+            if isinstance(images, Image.Image):
+                images = [images]
+            embeddings = []
+            dataloader = DataLoader(
+                images, batch_size=self.bs, shuffle=False,
+                collate_fn=lambda x: self.process_images(x))
+            with torch.no_grad():
+                dev = self.model.device_ids[0] if self.is_parallel else self.model.device
+                for batch in tqdm(dataloader, desc="[ColQwen2Retriever] Embedding quotes in images"):
+                    batch = {k: v.to(dev) for k, v in batch.items()}
+                    outputs = self.model(**batch)
+                    for emb in torch.unbind(outputs):
+                        embeddings.append(emb.cpu().float().numpy())
+            return embeddings
+        else: # input quotes in text format
+            if isinstance(images, str):
+                images = [images]
+            embeddings = []
+            dataloader = DataLoader(
+                images, batch_size=self.bs, shuffle=False,
+                collate_fn=lambda x: self.process_image_texts(x)
+            )
+            with torch.no_grad():
+                dev = self.model.device_ids[0] if self.is_parallel else self.model.device
+                for batch in tqdm(dataloader, desc="[ColQwen2Retriever] Embedding quotes in texts"):
+                    batch = {k: v.to(dev) for k, v in batch.items()}
+                    outputs = self.model(**batch)
+                    for emb in torch.unbind(outputs):
+                        embeddings.append(emb.cpu().float().numpy())
+            return embeddings
+    
     def score(self, query_embs, image_embs):
         qs = [torch.from_numpy(e) for e in query_embs]
         ds = [torch.from_numpy(e) for e in image_embs]
@@ -374,36 +562,3 @@ class ColQwen2Retriever:
                 maxsim = torch.max(sim, dim=1)[0].sum().item()
                 scores[i, j] = maxsim
         return scores
-    
-if __name__ == "__main__":
-
-    retriever = ColPaliRetriever(bs=4)
-
-    queries = ['how much protein should a female eat', 'how much food should a male eat or drink or shit']
-
-    prefix = "/export/home2/zli/kc/minerU/MP-DocVQA/mineru_auto/ffdw0217/images/"
-    images = [
-        "1c6cdebf5de674caf4e21c79a7425b2b5da19d0db17f6b6df0e5d0de5a759eca.jpg",
-        "3be268e0f904af72855eda91f1e9231a03d41b864acb9a551bad6f81519419b9.jpg",
-        "5c77b31e0a6328bb35ec43bedee297e91584be96b347521c4e48f7ba4e3a85b2.jpg",
-        "9c8947d6d05678a1768c2329e0b23a31d2dbc517f908524203ac20acd3f79aee.jpg",
-        "75f737182bd5249f1066cf81fa7dc2281698e6a0421c24cb704610a708bba0e0.jpg",
-        "0229e3e5ebad89660adfd8d578525d38e195ab7147c211bf49af0975a39837d1.jpg"
-    ]
-
-    # image_path = [prefix+x for x in images]
-    images = [Image.open(prefix+x) for x in images]
-    
-    q_embeds = retriever.embed_queries(queries)
-    for x in q_embeds:
-        print(x.shape)
-
-    q_embeds = retriever.embed_queries(queries, pad=True)
-    for x in q_embeds:
-        print(x.shape)
-
-    img_embeds = retriever.embed_quotes(images)
-
-    scores = retriever.score(q_embeds, img_embeds)
-    print(scores)
-    print(scores.argmax(axis=1))

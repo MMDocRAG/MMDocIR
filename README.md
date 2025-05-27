@@ -36,7 +36,7 @@ both training and evaluation. Through rigorous experiments, we demonstrate that 
 
 ### 1. Download Datasets 
 
-Download `MMDocIR_pages.parquet` and `MMDocIR_layouts.parquet` from huggingface: [MMDocIR/MMDocIR_Evaluation_Dataset](https://huggingface.co/datasets/MMDocIR/MMDocIR_Evaluation_Dataset)
+Download [`MMDocIR_pages.parquet`](https://huggingface.co/datasets/MMDocIR/MMDocIR_Evaluation_Dataset/blob/main/MMDocIR_pages.parquet) and [`MMDocIR_layouts.parquet`](https://huggingface.co/datasets/MMDocIR/MMDocIR_Evaluation_Dataset/blob/main/MMDocIR_layouts.parquet) from huggingface: [MMDocIR/MMDocIR_Evaluation_Dataset](https://huggingface.co/datasets/MMDocIR/MMDocIR_Evaluation_Dataset)
 
 Place two parquet files under [`./dataset/`](https://github.com/MMDocRAG/MMDocIR/tree/main/dataset)
 
@@ -91,7 +91,7 @@ python encode.py BGE --bs 256 --mode vlm_text --encode query,page,layout
 
 >`model` : the model name for example "BGE", is compulsory. All available models are `["BGE", "E5", "GTE", "Contriever", "DPR", "ColBERT", "ColPali", "ColQwen", "DSE-docmatix", "DSE-wikiss"]`
 >
->`--mode` parameter (`choices=['vlm_text', 'oct_text', 'image_binary'], default='vlm_text'`) is to control passing pages or layouts as either vlm_text, ocr_text, or binary_image. 
+>`--mode` parameter (`choices=['vlm_text', 'oct_text', 'image_binary', 'image_hybrid'], default='vlm_text'`) is to control passing pages or layouts as either vlm_text, ocr_text, image_binary, image_hybrid. 
 >
 >`--encode` parameter (`default="query,page,layout"`) is by default encode for all queries, pages, and layouts. 
 >

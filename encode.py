@@ -4,7 +4,6 @@ import pickle
 import argparse
 
 
-
 def get_queries(file_in):
     query_list, query_indices = [], []
     q_count = 0
@@ -22,7 +21,6 @@ def get_queries(file_in):
 
 def get_pages(file_in, mode="vlm_text"):
     q_list, q_indices = [], []
-    # df header ['doc_name','domain','passage_id','image_path','image_binary','ocr_text','vlm_text']
     dataset_df = pd.read_parquet(file_in)
     for row_index, row in dataset_df.iterrows():
         q_list.append(row[mode])
@@ -32,7 +30,6 @@ def get_pages(file_in, mode="vlm_text"):
 
 def get_layouts(file_in, mode="vlm_text"):
     q_list, q_indices = [], []
-    # df header ['doc_name','domain','passage_id','image_path','image_binary','ocr_text','vlm_text']
     dataset_df = pd.read_parquet(file_in)
     for row_index, row in dataset_df.iterrows():
         layout_type = row["type"]
@@ -47,39 +44,70 @@ def get_layouts(file_in, mode="vlm_text"):
         q_indices.append((row_index, page_id, *bbox))
     return q_list, q_indices
 
+
+def get_layouts_hybrid(file_in):
+    q_img_list, q_img_indices = [], []
+    q_txt_list, q_txt_indices = [], []
+    dataset_df = pd.read_parquet(file_in)
+    for row_index, row in dataset_df.iterrows():
+        layout_type = row["type"]
+        bbox = row["bbox"]
+        page_id = row["page_id"]
+        if layout_type in ["table", "image"]: 
+            q_img_list.append(row["image_binary"])
+            q_img_indices.append((row_index, page_id, *bbox))
+        else:
+            q_txt_list.append(row["text"])
+            q_txt_indices.append((row_index, page_id, *bbox))
+    return q_img_list, q_img_indices, q_txt_list, q_txt_indices
+
+
 def get_retriever(model, bs):
     if model == "BGE":
         from text_wrapper import BGE
-        return BGE()
+        bs = bs if bs != -1 else 256
+        return BGE(bs=bs)
     elif model == "E5":
         from text_wrapper import E5
-        return E5()
+        bs = bs if bs != -1 else 256
+        return E5(bs=bs)
     elif model == "GTE":
         from text_wrapper import GTE
-        return GTE()
+        bs = bs if bs != -1 else 256
+        return GTE(bs=bs)
     elif model == "Contriever":
         from text_wrapper import Contriever
-        return Contriever()
+        bs = bs if bs != -1 else 256
+        return Contriever(bs=bs)
     elif model == "DPR":
         from text_wrapper import DPR
-        return DPR()
+        bs = bs if bs != -1 else 256
+        return DPR(bs=bs)
     elif model == "ColBERT":
         from text_wrapper import ColBERTReranker
-        return ColBERTReranker()
-    
+        bs = bs if bs != -1 else 256
+        return ColBERTReranker(bs=bs)
+
     elif model == "ColPali":
         from vision_wrapper import ColPaliRetriever
-        if bs != -1:
-            return ColPaliRetriever(bs=bs)
-        else:
-            return ColPaliRetriever(bs=10)
-        
+        bs = bs if bs != -1 else 10
+        return ColPaliRetriever(bs=bs)
+
     elif model == "ColQwen":
         from vision_wrapper import ColQwen2Retriever
-        if bs != -1:
-            return ColQwen2Retriever(bs=bs) #or 12
-        else:
-            return ColQwen2Retriever(bs=12)
+        bs = bs if bs != -1 else 8
+        return ColQwen2Retriever(bs=bs)
+
+    elif model == "DSE-docmatix":
+        from vision_wrapper import DSE
+        bs = bs if bs != -1 else 2
+        return DSE(model_name="checkpoint/dse-phi3-docmatix-v2", bs=bs)
+
+    elif model == "DSE-wikiss":
+        from vision_wrapper import DSE
+        bs = bs if bs != -1 else 2
+        return DSE(model_name="checkpoint/dse-phi3-v1", bs=bs)
+
     else:
         raise ValueError("the model name is not correct!")
 
@@ -93,11 +121,11 @@ def initialize_args():
     parser.add_argument('--bs', type=int, default=-1)
     parser.add_argument('--encode_path', type=str, default='encode')
     parser.add_argument('--encode', type=str, default="query,page,layout")
-    parser.add_argument('--mode', choices=['vlm_text', 'oct_text', 'image_binary'], default='vlm_text')
+    parser.add_argument('--mode', choices=['vlm_text', 'oct_text', 'image_binary', 'image_hybrid'], default='vlm_text')
     return parser.parse_args()
 
 if __name__ == "__main__":
-    # ["BGE", "E5", "GTE", "Contriever", "DPR", "ColBERT"]
+    # ["BGE", "E5", "GTE", "Contriever", "DPR", "ColBERT", "ColPali", "ColQwen", "DSE-docmatix", "DSE-wikiss"]
     args = initialize_args()
     model, mode, encode, encode_path, bs = args.model, args.mode, args.encode, args.encode_path, args.bs
 
@@ -121,11 +149,28 @@ if __name__ == "__main__":
             pickle.dump((encoded_quote, quote_indices), f)
         print("page encoding is done!")
 
-    if "layout" in encode:
+    if "layout" in encode and mode=='image_binary':
         layout_list, layout_indices = get_layouts("dataset/MMDocIR_layouts.parquet", mode)
         print("number of layouts to be encoded: ", len(layout_list))
         # encoding layouts
         encoded_layout = retriever.embed_quotes(layout_list)
         with open(f"{encode_path}/encoded_layout_{model}_{bs}.pkl", "wb") as f:
             pickle.dump((encoded_layout, layout_indices), f)
+        print("layout encoding is done!")
+
+    if "layout" in encode and mode=='image_hybrid':
+        q_img_list, q_img_indices, q_txt_list, q_txt_indices = get_layouts_hybrid("dataset/MMDocIR_layouts.parquet")
+        print("number of layouts to be encoded: ", len(q_img_list)+len(q_txt_list))
+        encoded_layout1 = retriever.embed_quotes(q_txt_list, hybrid=True)
+        encoded_layout2 = retriever.embed_quotes(q_img_list)
+
+        all_indices = q_txt_indices + q_img_indices
+        all_encodings = list(encoded_layout1) + list(encoded_layout2)
+        paired = list(zip(all_indices, all_encodings))
+        paired_sorted = sorted(paired, key=lambda x: x[0][0])
+        sorted_indices, sorted_encodings = zip(*paired_sorted) # Unpack
+        sorted_indices = list(sorted_indices)
+        sorted_encodings = list(sorted_encodings)
+        with open(f"{encode_path}/encoded_layout_{model}_{bs}_hybrid.pkl", "wb") as f:
+            pickle.dump((sorted_encodings, sorted_indices), f)
         print("layout encoding is done!")
