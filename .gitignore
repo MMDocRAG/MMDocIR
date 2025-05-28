@@ -3,3 +3,4 @@
 **/*2del/*
 *.parquet
 /.idea/
+/__pycache__/

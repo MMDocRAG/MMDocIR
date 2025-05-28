@@ -1,11 +1,11 @@
 <p align="center">
   <h1 align="center">MMDocIR: Benchmarking Multi-Modal Retrieval for Long Documents</h1>
     <p align="center">
-    <strong>Kuicai Dong</strong></a>
+    <strong>Kuicai Dong*</strong></a>
     ·
-    <strong>Yujing Chang</strong>
+    <strong>Yujing Chang*</strong>
     ·
-    <strong>Xin Deik Goh</strong>
+    <strong>Derrick Xin Deik Goh*</strong>
     ·
     <strong>Dexun Li</strong>
     ·
@@ -27,6 +27,7 @@ both training and evaluation. Through rigorous experiments, we demonstrate that 
     <img src="static/images/top_figure1.png" alt="Logo" width="100%">
   </a>
 <br>
+
 
 
 
