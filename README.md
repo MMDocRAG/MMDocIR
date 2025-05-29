@@ -13,11 +13,13 @@
     ·
     <a href="https://stephenliu0423.github.io/"><strong>Yong Liu</strong></a>
   </p>
-  <!-- <h2 align="center">Submitted to arXiv</h2> -->
-  📖<a href="https://arxiv.org/abs/2501.08828">Paper</a> |🏠<a href="https://mmdocrag.github.io/MMDocIR/">Homepage</a></h3>|🤗<a 
-href="https://huggingface.co/MMDocIR">Huggingface</a></h3>
-<div align="center"></div>
 <p align="center">
+    📖<a href="https://arxiv.org/abs/2501.08828">Paper</a> |
+    🏠<a href="https://mmdocrag.github.io/MMDocIR/">Homepage</a> |
+    🤗<a href="https://huggingface.co/MMDocIR">Huggingface</a> |
+	👉<a href="https://github.com/mmdocrag/MMDocIR">Github</a>
+</p>
+<p align="left">
   <p>
 Multimodal document retrieval aims to identify and retrieve various forms of multimodal content, such as figures, tables, charts, and layout information from extensive documents. Despite its increasing popularity, there is a notable lack of a comprehensive and robust benchmark to effectively evaluate the performance of systems in such tasks. To address this gap, this work introduces a new benchmark, named MMDocIR, that encompasses two distinct tasks: page-level and layout-level retrieval. The former evaluates the performance of identifying the most relevant pages within a long document, while the later assesses the ability of detecting specific layouts, providing a more fine-grained measure than whole-page analysis. A layout
 refers to a variety of elements, including textual paragraphs, equations, figures, tables, or charts. The MMDocIR benchmark comprises a rich dataset featuring 1,685 questions annotated by experts and 173,843 questions with bootstrapped labels, making it a valuable resource in multimodal document retrieval for
